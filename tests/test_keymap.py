@@ -62,7 +62,12 @@ class KeymapTests(unittest.TestCase):
     def test_command_remap(self) -> None:
         self.assertEqual(remap_command(55, True), 59)
         self.assertEqual(remap_command(54, True), 62)
+        self.assertEqual(remap_command(58, True), 55)
+        self.assertEqual(remap_command(61, True), 54)
+        self.assertEqual(KEYS[55].win_scan, 0x5B)
+        self.assertTrue(KEYS[55].win_ext)
         self.assertEqual(remap_command(55, False), 55)
+        self.assertEqual(remap_command(58, False), 58)
         self.assertEqual(remap_command(0, True), 0)
 
     def test_linux_tokens(self) -> None:

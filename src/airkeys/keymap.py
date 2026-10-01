@@ -82,7 +82,7 @@ KEYS: dict[int, KeyInfo] = {
     49: _key("space", 0x39, linux="key:space"),
     51: _key("backspace", 0x0E, linux="key:backspace"),
     53: _key("escape", 0x01, linux="key:esc"),
-    # modifiers. Command defaults to the Windows key unless the sender remaps it.
+    # 55 and 54 are the Windows key scan codes. Command is remapped onto Control before send.
     55: _key("cmd", 0x5B, ext=True, linux="key:cmd"),
     54: _key("cmd_r", 0x5C, ext=True, linux="key:cmd_r"),
     59: _key("ctrl", 0x1D, linux="key:ctrl"),
@@ -122,6 +122,8 @@ LEFT_CMD = 55
 RIGHT_CMD = 54
 LEFT_CTRL = 59
 RIGHT_CTRL = 62
+LEFT_OPTION = 58
+RIGHT_OPTION = 61
 CAPS = 57
 FN = 63
 
@@ -130,21 +132,25 @@ MODIFIER_CODES = {
     RIGHT_CMD,
     LEFT_CTRL,
     RIGHT_CTRL,
-    58,  # left option
-    61,  # right option
+    LEFT_OPTION,
+    RIGHT_OPTION,
     56,  # left shift
     60,  # right shift
 }
 
 
 def remap_command(code: int, map_cmd_to_ctrl: bool) -> int:
-    """Turn the Command keys into Control. Windows shortcuts then match the Mac habit."""
+    """Match the Mac keyboard on Windows: Command is Ctrl, Option is the Windows key."""
     if not map_cmd_to_ctrl:
         return code
     if code == LEFT_CMD:
         return LEFT_CTRL
     if code == RIGHT_CMD:
         return RIGHT_CTRL
+    if code == LEFT_OPTION:
+        return LEFT_CMD
+    if code == RIGHT_OPTION:
+        return RIGHT_CMD
     return code
 
 

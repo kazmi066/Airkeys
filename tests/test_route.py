@@ -39,6 +39,15 @@ class RouteTests(unittest.TestCase):
         self.assertTrue(down.swallow)
         self.assertEqual(up.forward, [(0, False)])
 
+    def test_option_becomes_the_windows_key(self) -> None:
+        down, held = route(FLAGS_CHANGED, 58, sharing=True)
+        self.assertEqual(down.forward, [(55, True)])
+        self.assertTrue(down.swallow)
+        self.assertEqual(held, {58})
+        up, held = route(FLAGS_CHANGED, 58, sharing=True, held_mods=held)
+        self.assertEqual(up.forward, [(55, False)])
+        self.assertEqual(held, set())
+
     def test_command_becomes_ctrl(self) -> None:
         down, held = route(FLAGS_CHANGED, 55, sharing=True)
         self.assertEqual(down.forward, [(59, True)])

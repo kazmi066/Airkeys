@@ -54,9 +54,7 @@ PYTHONPATH=src python3 -m airkeys doctor
 
 AirKeys sends the physical key you pressed. The PC then applies its own keyboard layout. If both machines use US QWERTY, you get the character you expect. If the layouts differ, you get whatever that key means on the PC.
 
-Command is sent as Ctrl, so Command+C copies on Windows.
-
-Symbols that you type with the Option key on a Mac are not translated. Those are Mac-only.
+Command is Ctrl, so Command+C copies on Windows. Option is the Windows key, so Option+E opens Explorer and Option+Tab opens Task View. The Control key stays Ctrl.
 
 On a MacBook, turn on "Use F1, F2, etc. keys as standard function keys" in System Settings if the top row should type F1 through F12 on the PC. While sharing is on, that row does not change brightness or volume on the Mac.
 
