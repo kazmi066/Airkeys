@@ -20,16 +20,14 @@ You need a keyboard for this install. After that, the receiver can start with Wi
 
 1. Install Python 3 from python.org and enable the option that adds Python to PATH.
 2. Copy this folder to the PC.
-3. Double-click `run-receiver.bat`. The AirKeys window opens on its own. The command prompt is not the receiver, so Ctrl+C in a terminal does not close it.
+3. Double-click `run-receiver.bat`. Windows asks for administrator approval. Accept it. The AirKeys window opens on its own, already allowed to type into games. The command prompt is not the receiver, so Ctrl+C in a terminal does not close it.
 4. When Windows asks, allow Python on private networks.
 5. Leave the AirKeys window open. It shows a PIN and an address.
 6. To hear this PC on the MacBook, run `python -m pip install soundcard` once in this folder.
 
 ## Games
 
-Notepad and the desktop take the keystrokes as they arrive. Games often run as administrator, and Windows then drops keys that come from a normal AirKeys window. On the PC window, click Allow games and accept the prompt.
-
-Forza Horizon also stops using the keyboard while a controller is plugged in. Unplug the controller, then try the keys again.
+The receiver starts as administrator, so games receive the same keys as Notepad. Forza Horizon stops using the keyboard while a controller is plugged in. Unplug the controller, then try the keys again.
 
 To start it at sign-in, press Win+R, run `shell:startup`, and put a shortcut to `run-receiver.bat` in that folder.
 

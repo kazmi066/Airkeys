@@ -33,17 +33,6 @@ class ShareState:
         return self.enabled and self.connected
 
 
-def _windows_admin() -> bool:
-    if sys.platform != "win32":
-        return False
-    import ctypes
-
-    try:
-        return bool(ctypes.windll.shell32.IsUserAnAdmin())
-    except Exception:
-        return False
-
-
 def _font(widget, size: int, weight: str = "normal") -> tuple:
     family = getattr(widget.winfo_toplevel(), "_airkeys_font", "Helvetica")
     return (family, size, weight)
@@ -55,8 +44,10 @@ def run(role: str | None = None) -> None:
     if role == "send" and sys.platform != "darwin":
         role = "receive"
     if role == "receive":
-        from airkeys.console import detach_from_console
+        from airkeys.console import detach_from_console, relaunch_as_admin
 
+        if relaunch_as_admin():
+            return
         detach_from_console()
     root = tk.Tk()
     root.title("AirKeys")
@@ -121,17 +112,6 @@ class ReceiverView(tk.Frame):
         self.status_label.pack(pady=(22, 0))
         self.audio_var = tk.StringVar(value="")
         tk.Label(box, textvariable=self.audio_var, bg=BG, fg=MUTED, font=_font(self, 13)).pack(pady=(8, 0))
-        if sys.platform == "win32" and not _windows_admin():
-            tk.Label(
-                box,
-                text="Games receive keys when AirKeys runs as admin.",
-                bg=BG,
-                fg=MUTED,
-                font=_font(self, 12),
-                wraplength=320,
-                justify="center",
-            ).pack(pady=(16, 0))
-            _text_button(box, "Allow games", self._allow_games).pack(pady=(4, 0))
         if self.inject_error:
             self.status_var.set(self.inject_error)
             return
@@ -168,37 +148,6 @@ class ReceiverView(tk.Frame):
         if self.audio is not None:
             self.audio.stop()
             self.audio = None
-
-    def _allow_games(self) -> None:
-        import ctypes
-        import os
-        from ctypes import wintypes
-
-        os.environ["AIRKEYS_ELEVATED_HANDOFF"] = "1"
-        self._release_ports()
-        launched = 0
-        try:
-            shell = ctypes.windll.shell32
-            shell.ShellExecuteW.argtypes = [
-                wintypes.HWND,
-                wintypes.LPCWSTR,
-                wintypes.LPCWSTR,
-                wintypes.LPCWSTR,
-                wintypes.LPCWSTR,
-                ctypes.c_int,
-            ]
-            shell.ShellExecuteW.restype = ctypes.c_void_p
-            launched = shell.ShellExecuteW(None, "runas", sys.executable, "-m airkeys receive", os.getcwd(), 1) or 0
-        except Exception:
-            launched = 0
-        if launched > 32:
-            self._closed = True
-            self.root.destroy()
-            os._exit(0)
-        os.environ.pop("AIRKEYS_ELEVATED_HANDOFF", None)
-        ips = local_ipv4()
-        self._listen(ips[0] if ips else "This computer")
-        self.audio_var.set("Admin prompt was dismissed")
 
     def _audio_status(self, text: str) -> None:
         self._inbox.put(("audio", text))
