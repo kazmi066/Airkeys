@@ -100,23 +100,23 @@ class ReceiverView(tk.Frame):
         ips = local_ipv4()
         address = ips[0] if ips else "This computer"
         tk.Label(box, text=address, bg=BG, fg=MUTED, font=_font(self, 15)).pack(pady=(18, 0))
-        self.status = tk.StringVar(value="Waiting")
-        self.status_label = tk.Label(box, textvariable=self.status, bg=BG, fg=MUTED, font=_font(self, 17))
+        self.status_var = tk.StringVar(value="Waiting")
+        self.status_label = tk.Label(box, textvariable=self.status_var, bg=BG, fg=MUTED, font=_font(self, 17))
         self.status_label.pack(pady=(22, 0))
         if self.inject_error:
-            self.status.set(self.inject_error)
+            self.status_var.set(self.inject_error)
             return
         try:
             self.server = Server(self.pin, self)
             self.server.start()
         except OSError as exc:
-            self.status.set(str(exc))
+            self.status_var.set(str(exc))
             return
         try:
             self.beacon = Beacon(self.server.port, socket.gethostname(), DISCOVERY_PORT)
             self.beacon.start()
         except OSError:
-            self.status.set(address)
+            self.status_var.set(address)
         self._tick()
 
     def key(self, code: int, down: bool) -> None:
@@ -145,7 +145,7 @@ class ReceiverView(tk.Frame):
             while True:
                 kind, text = self._inbox.get_nowait()
                 if kind == "status":
-                    self.status.set(text)
+                    self.status_var.set(text)
                     self.status_label.configure(fg=BLUE if text == "Connected" else MUTED)
         except queue.Empty:
             pass
@@ -565,21 +565,22 @@ def _fill_button(master, text: str, command, bg: str) -> "_Fill":
     return _Fill(master, text, command, bg)
 
 
-def _text_button(master, text: str, command) -> tk.Button:
-    return tk.Button(
+def _text_button(master, text: str, command) -> tk.Label:
+    # A native Mac button draws a white pill on a black box. A label does not.
+    label = tk.Label(
         master,
         text=text,
-        command=command,
-        relief="flat",
-        bd=0,
         bg=BG,
         fg=BLUE,
-        activebackground=BG,
-        activeforeground=BLUE,
         font=_font(master, 13),
         cursor="hand2",
+        highlightthickness=0,
+        bd=0,
         padx=0,
+        pady=2,
     )
+    label.bind("<Button-1>", lambda _event: command())
+    return label
 
 
 class _Fill(tk.Frame):

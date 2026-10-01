@@ -88,7 +88,10 @@ class Server:
                 continue
             except OSError:
                 break
-            self._handle_client(conn, addr[0])
+            try:
+                self._handle_client(conn, addr[0])
+            except Exception:
+                continue
 
     def _locked(self, ip: str) -> bool:
         count, until = self._fails.get(ip, (0, 0.0))
@@ -106,6 +109,12 @@ class Server:
         else:
             self._fails[ip] = (count, 0.0)
 
+    def _tell(self, text: str) -> None:
+        try:
+            self.sink.status(text)
+        except Exception:
+            return
+
     def _handle_client(self, conn: socket.socket, ip: str) -> None:
         with self._active_lock:
             self._active = conn
@@ -120,14 +129,14 @@ class Server:
                 self._note_failure(ip)
                 time.sleep(0.3)
                 _send(conn, {"op": "deny"})
-                self.sink.status("A connection used the wrong PIN.")
+                self._tell("A connection used the wrong PIN.")
                 return
             self._fails.pop(ip, None)
             _send(conn, {"op": "ok"})
-            self.sink.status(f"Connected to {ip}. Type into the focused app.")
+            self._tell(f"Connected to {ip}. Type into the focused app.")
             self._read_session(conn)
         except (OSError, ProtocolError, TimeoutError):
-            self.sink.status("Waiting for the Mac.")
+            self._tell("Waiting for the Mac.")
         finally:
             with self._active_lock:
                 if self._active is conn:
@@ -146,12 +155,12 @@ class Server:
                 chunk = conn.recv(4096)
             except socket.timeout:
                 self.sink.release_all()
-                self.sink.status("The Mac went quiet. Held keys were released.")
+                self._tell("The Mac went quiet. Held keys were released.")
                 return
             except OSError:
                 return
             if not chunk:
-                self.sink.status("Waiting for the Mac.")
+                self._tell("Waiting for the Mac.")
                 return
             buf += chunk
             if len(buf) > 65536:
