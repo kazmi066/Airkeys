@@ -10,6 +10,7 @@ dependencies = []
 
 [project.optional-dependencies]
 linux = ["pynput>=1.7"]
+audio = ["soundcard>=0.4.2"]
 
 [project.scripts]
 airkeys = "airkeys.__main__:main"

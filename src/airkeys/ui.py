@@ -62,7 +62,7 @@ def run(role: str | None = None) -> None:
     root._airkeys_view = view
     view.pack(fill="both", expand=True)
     root.protocol("WM_DELETE_WINDOW", lambda: _quit(root))
-    _place(root, 400, 520 if role == "send" else 460)
+    _place(root, 400, 560 if role == "send" else 460)
     root.mainloop()
 
 
@@ -92,6 +92,7 @@ class ReceiverView(tk.Frame):
         except Exception as exc:
             self.inject_error = str(exc)
         self.server: Server | None = None
+        self.audio = None
         self.beacon: Beacon | None = None
         self._closed = False
         self._inbox: queue.Queue = queue.Queue()
@@ -107,6 +108,8 @@ class ReceiverView(tk.Frame):
         self.status_var = tk.StringVar(value="Waiting")
         self.status_label = tk.Label(box, textvariable=self.status_var, bg=BG, fg=MUTED, font=_font(self, 17))
         self.status_label.pack(pady=(22, 0))
+        self.audio_var = tk.StringVar(value="")
+        tk.Label(box, textvariable=self.audio_var, bg=BG, fg=MUTED, font=_font(self, 13)).pack(pady=(8, 0))
         if self.inject_error:
             self.status_var.set(self.inject_error)
             return
@@ -117,11 +120,21 @@ class ReceiverView(tk.Frame):
             self.status_var.set(str(exc))
             return
         try:
+            from airkeys.audio_link import AudioServer
+
+            self.audio = AudioServer(self.pin, on_status=self._audio_status)
+            self.audio.start()
+        except OSError:
+            self.audio_var.set("Audio port is busy")
+        try:
             self.beacon = Beacon(self.server.port, socket.gethostname(), DISCOVERY_PORT)
             self.beacon.start()
         except OSError:
             self.status_var.set(address)
         self._tick()
+
+    def _audio_status(self, text: str) -> None:
+        self._inbox.put(("audio", text))
 
     def key(self, code: int, down: bool) -> None:
         if self.injector is not None:
@@ -151,6 +164,8 @@ class ReceiverView(tk.Frame):
                 if kind == "status":
                     self.status_var.set(text)
                     self.status_label.configure(fg=BLUE if text == "Connected" else MUTED)
+                elif kind == "audio":
+                    self.audio_var.set(text)
         except queue.Empty:
             pass
         self.root.after(50, self._tick)
@@ -163,6 +178,8 @@ class ReceiverView(tk.Frame):
             self.beacon.stop()
         if self.server is not None:
             self.server.stop()
+        if self.audio is not None:
+            self.audio.stop()
         self.release_all()
 
 
@@ -252,6 +269,24 @@ class SenderView(tk.Frame):
         self.address_link = _text_button(self.column, "Enter an address", self._toggle_address)
         self.primary = _fill_button(self.column, "Connect", self._primary, BLUE)
         self.disconnect = _text_button(self.column, "Disconnect", self._disconnect)
+        self._audio_on = False
+        self._audio_starting = False
+        self._audio_host = ""
+        self._audio_pin = ""
+        self.audio_link = _text_button(self.column, "Play PC audio", self._toggle_audio)
+        self.audio_note = tk.StringVar(value="")
+        self.audio_note_label = tk.Label(
+            self.column,
+            textvariable=self.audio_note,
+            bg=BG,
+            fg=MUTED,
+            font=_font(self, 12),
+            wraplength=340,
+            justify="left",
+        )
+        from airkeys.audio_link import AudioClient
+
+        self.audio_client = AudioClient(on_lost=self._audio_lost)
 
         self._check_permission()
         self._layout_idle()
@@ -280,6 +315,8 @@ class SenderView(tk.Frame):
         self.primary.set_text("Connect", BLUE)
         self.primary.pack_forget()
         self.disconnect.pack_forget()
+        self.audio_link.pack_forget()
+        self.audio_note_label.pack_forget()
         self.pin_label.pack_forget()
         self.pin.pack_forget()
         self.address.pack_forget()
@@ -307,6 +344,7 @@ class SenderView(tk.Frame):
         self.address_link.pack_forget()
         self.primary.set_text("Share keyboard", BLUE)
         self.primary.pack(fill="x", pady=(8, 0))
+        self._pack_audio()
         self.disconnect.pack(anchor="w", pady=(10, 0))
         name = self._target_name()
         self.status.set(name)
@@ -322,7 +360,59 @@ class SenderView(tk.Frame):
         self.disconnect.pack_forget()
         self.primary.set_text("Stop", INK)
         self.primary.pack(fill="x", pady=(8, 0))
+        self._pack_audio()
         self.status.set(self._target_name())
+
+    def _pack_audio(self) -> None:
+        self.audio_link.pack_forget()
+        self.audio_note_label.pack_forget()
+        self.audio_link.pack(anchor="w", pady=(12, 0))
+        if self.audio_note.get():
+            self.audio_note_label.pack(anchor="w", pady=(4, 0))
+
+    def _toggle_audio(self) -> None:
+        if self._audio_on or self._audio_starting:
+            self._stop_audio()
+            return
+        if not self.state.connected or not self._audio_host or not self._audio_pin:
+            return
+        self._audio_starting = True
+        self.audio_note.set("Starting PC audio")
+        self._pack_audio()
+        threading.Thread(target=self._audio_thread, daemon=True).start()
+
+    def _audio_thread(self) -> None:
+        from airkeys.audio import AudioError
+
+        try:
+            self.audio_client.connect(self._audio_host, self._audio_pin)
+        except AuthError:
+            if self._audio_starting:
+                self._inbox.put(("audio-fail", "Wrong PIN"))
+            return
+        except AudioError as exc:
+            if self._audio_starting:
+                self._inbox.put(("audio-fail", str(exc)))
+            return
+        except OSError:
+            if self._audio_starting:
+                self._inbox.put(("audio-fail", "Could not play PC audio"))
+            return
+        if not self._audio_starting:
+            self.audio_client.close()
+            return
+        self._inbox.put(("audio-on",))
+
+    def _audio_lost(self, text: str) -> None:
+        self._inbox.put(("audio-fail", text))
+
+    def _stop_audio(self) -> None:
+        self._audio_starting = False
+        self._audio_on = False
+        self.audio_client.close()
+        self.audio_link.configure(text="Play PC audio")
+        self.audio_note.set("")
+        self.audio_note_label.pack_forget()
 
     def _target_name(self) -> str:
         if self.selected and self.selected in self.peers:
@@ -423,6 +513,8 @@ class SenderView(tk.Frame):
         self.selected = (host, port)
         shown = host if port == DEFAULT_PORT else f"{host}:{port}"
         settings.update(last_host=shown, last_pin=pin, map_cmd_to_ctrl=True)
+        self._audio_host = host
+        self._audio_pin = pin
         self._layout_connected()
 
     def _connect_fail(self, text: str) -> None:
@@ -439,6 +531,7 @@ class SenderView(tk.Frame):
         self.grabber.shutdown()
         self.state.connected = False
         self.client.close()
+        self._stop_audio()
         self.status.set("Enter the PIN shown on your PC" if self.peers else "Looking for your PC")
         self._layout_idle()
 
@@ -553,8 +646,24 @@ class SenderView(tk.Frame):
             elif kind == "lost":
                 self.grabber.shutdown()
                 self._connecting = False
+                self._stop_audio()
                 self.status.set("Connection ended")
                 self._layout_idle()
+            elif kind == "audio-on":
+                self._audio_starting = False
+                self._audio_on = True
+                self.audio_link.configure(text="Stop PC audio")
+                self.audio_note.set("")
+                if self.state.connected:
+                    self._pack_audio()
+            elif kind == "audio-fail":
+                self._audio_starting = False
+                self._audio_on = False
+                self.audio_client.close()
+                self.audio_link.configure(text="Play PC audio")
+                self.audio_note.set(item[1] if self.state.connected else "")
+                if self.state.connected:
+                    self._pack_audio()
 
     def shutdown(self) -> None:
         if self._closed:
@@ -567,6 +676,7 @@ class SenderView(tk.Frame):
         except OSError:
             pass
         self.client.close()
+        self._stop_audio()
         self.finder.stop()
         self.grabber.shutdown()
 

@@ -23,12 +23,13 @@ You need a keyboard for this install. After that, the receiver can start with Wi
 3. Double-click `run-receiver.bat`. The AirKeys window opens on its own. The command prompt is not the receiver, so Ctrl+C in a terminal does not close it.
 4. When Windows asks, allow Python on private networks.
 5. Leave the AirKeys window open. It shows a PIN and an address.
+6. To hear this PC on the MacBook, run `python -m pip install soundcard` once in this folder.
 
 To start it at sign-in, press Win+R, run `shell:startup`, and put a shortcut to `run-receiver.bat` in that folder.
 
 ## Set up the Mac
 
-You need Python 3 on the Mac. `python3` has to be on your PATH. The Accessibility permission is granted to that exact program, so use the same one you launch AirKeys with.
+You need Python 3 on the Mac. `python3` has to be on your PATH. The Accessibility permission is granted to that exact program, so use the same one you launch AirKeys with. For PC audio, run `python3 -m pip install soundcard` once.
 
 1. Double-click `AirKeys.command`. The Mac window is the keyboard. The PC window is the receiver. There is no mode to pick.
 2. If macOS asks for Accessibility access, turn it on for Python. The window shows the program path if this is still blocked.
@@ -36,6 +37,8 @@ You need Python 3 on the Mac. `python3` has to be on your PATH. The Accessibilit
 4. Click Share keyboard.
 
 Stop is on the screen. Control+Option+K also stops sharing. While sharing is on, the Mac does not receive the keyboard. The trackpad still works, and that is how you click Stop. If the PC does not appear, click Enter an address and type the address from the PC window.
+
+Play PC audio is under the connect button, and it stays off until you click it. The PC's sound then plays through the MacBook speakers. There is a short delay. Typing keeps its own connection, so audio trouble does not drop the keyboard. If Windows has no playback device at all, install VB-Audio Cable, set that cable as the default speaker, and try again.
 
 You can also run it from Terminal:
 
@@ -77,7 +80,7 @@ PYTHONPATH=src python3 -m unittest discover -s tests
 
 ## Layout of the code
 
-`grab_mac.py` watches the Mac keyboard. `route.py` decides which events to send. `link.py` is the TCP session on port 47777. `discover.py` finds the other computer with a UDP probe on port 47778. `inject.py` types on the receiving computer, using scan codes on Windows. `ui.py` is the window.
+`grab_mac.py` watches the Mac keyboard. `route.py` decides which events to send. `link.py` is the TCP session on port 47777. `discover.py` finds the other computer with a UDP probe on port 47778. `inject.py` types on the receiving computer, using scan codes on Windows. `audio_link.py` carries PC audio on port 47779. `ui.py` is the window.
 
 ## License
 
