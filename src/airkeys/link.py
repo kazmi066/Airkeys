@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import queue
 import socket
 import threading
 import time
@@ -181,14 +182,16 @@ class Client:
         self.connected = False
         self._sock: socket.socket | None = None
         self._stop = threading.Event()
-        self._send_lock = threading.Lock()
+        self._out: queue.Queue = queue.Queue()
         self._reader: threading.Thread | None = None
+        self._writer: threading.Thread | None = None
         self._heart: threading.Thread | None = None
         self._lost_once = False
 
     def connect(self, host: str, port: int, pin: str, timeout: float = 5) -> None:
         self.close()
         self._stop = threading.Event()
+        self._out = queue.Queue()
         self._lost_once = False
         sock = socket.create_connection((host, port), timeout=timeout)
         try:
@@ -201,29 +204,35 @@ class Client:
             raise
         if msg.get("op") != "ok":
             sock.close()
-            raise AuthError("That PIN was refused. Read the PIN on the other screen and try again.")
+            raise AuthError("That PIN was refused.")
         sock.settimeout(None)
         self._sock = sock
         self.connected = True
         self._reader = threading.Thread(target=self._read_loop, name="airkeys-reader", daemon=True)
+        self._writer = threading.Thread(target=self._write_loop, name="airkeys-writer", daemon=True)
         self._heart = threading.Thread(target=self._heartbeat, name="airkeys-heartbeat", daemon=True)
         self._reader.start()
+        self._writer.start()
         self._heart.start()
 
     def send_key(self, code: int, down: bool) -> None:
-        self._send_message({"op": "key", "code": int(code), "down": bool(down)})
+        self._enqueue({"op": "key", "code": int(code), "down": bool(down)})
 
     def send_release(self) -> None:
         if self._sock is None:
             return
         try:
-            self._send_message({"op": "release"})
+            self._enqueue({"op": "release"})
         except OSError:
             self._lost()
 
     def close(self) -> None:
         self._stop.set()
         self.connected = False
+        try:
+            self._out.put_nowait(None)
+        except Exception:
+            pass
         sock = self._sock
         self._sock = None
         if sock is not None:
@@ -235,23 +244,39 @@ class Client:
                 sock.close()
             except OSError:
                 pass
-        for thread in (self._reader, self._heart):
+        for thread in (self._reader, self._writer, self._heart):
             if thread is not None and thread is not threading.current_thread():
                 thread.join(timeout=1)
         self._reader = None
+        self._writer = None
         self._heart = None
 
-    def _send_message(self, payload: dict) -> None:
-        sock = self._sock
-        if sock is None or not self.connected:
+    def _enqueue(self, payload: dict) -> None:
+        if self._sock is None or not self.connected:
             raise OSError("not connected")
-        with self._send_lock:
-            _send(sock, payload)
+        self._out.put(payload)
+
+    def _write_loop(self) -> None:
+        while not self._stop.is_set():
+            try:
+                payload = self._out.get(timeout=0.2)
+            except queue.Empty:
+                continue
+            if payload is None or self._stop.is_set():
+                return
+            sock = self._sock
+            if sock is None:
+                return
+            try:
+                _send(sock, payload)
+            except OSError:
+                self._lost()
+                return
 
     def _heartbeat(self) -> None:
         while not self._stop.wait(HEARTBEAT_S):
             try:
-                self._send_message({"op": "ping"})
+                self._enqueue({"op": "ping"})
             except OSError:
                 self._lost()
                 return
@@ -276,7 +301,10 @@ class Client:
         self._lost_once = True
         self.connected = False
         if self.on_lost is not None:
-            self.on_lost()
+            try:
+                self.on_lost()
+            except Exception:
+                return
 
 
 def _send(sock: socket.socket, payload: dict) -> None:

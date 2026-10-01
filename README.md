@@ -30,14 +30,12 @@ To start it at sign-in, press Win+R, run `shell:startup`, and put a shortcut to 
 
 You need Python 3 on the Mac. `python3` has to be on your PATH. The Accessibility permission is granted to that exact program, so use the same one you launch AirKeys with.
 
-1. Double-click `AirKeys.command`.
-2. Choose "This MacBook is the keyboard".
-3. If macOS asks for Accessibility access, turn it on for the app it names. If no prompt appears, open System Settings, Privacy & Security, Accessibility, and add the Python path shown in the AirKeys window.
-4. Pick the PC in the list, or type the address shown on the PC.
-5. Type the PIN shown on the PC.
-6. Connect, then start sharing.
+1. Double-click `AirKeys.command`. The Mac window is the keyboard. The PC window is the receiver. There is no mode to pick.
+2. If macOS asks for Accessibility access, turn it on for Python. The window shows the program path if this is still blocked.
+3. When the PC appears, enter the PIN from its screen and click Connect.
+4. Click Share keyboard.
 
-Stop with the trackpad. The button stays on screen. Control+Option+K also stops sharing.
+Stop is on the screen. Control+Option+K also stops sharing. If the PC does not appear, click Enter an address and type the address from the PC window.
 
 You can also run it from Terminal:
 
@@ -56,7 +54,7 @@ PYTHONPATH=src python3 -m airkeys doctor
 
 AirKeys sends the physical key you pressed. The PC then applies its own keyboard layout. If both machines use US QWERTY, you get the character you expect. If the layouts differ, you get whatever that key means on the PC.
 
-Command is sent as Ctrl, so Command+C copies on Windows. The checkbox in the window turns that off.
+Command is sent as Ctrl, so Command+C copies on Windows.
 
 Symbols that you type with the Option key on a Mac are not translated. Those are Mac-only.
 
@@ -64,13 +62,13 @@ On a MacBook, the function row sends F1 through F12 when "Use F1, F2, etc. keys 
 
 ## Try it on the Mac alone
 
-Open two AirKeys windows. In one, choose the computer that needs a keyboard. In the other, choose the MacBook keyboard, connect to `127.0.0.1`, and enter the PIN from the first window. Click into TextEdit, start sharing, and type. The keys go out over the network and come back. Stop sharing before you close the windows.
+Open a receiver with `PYTHONPATH=src python3 -m airkeys receive`, and open the normal AirKeys window beside it. Connect to `127.0.0.1` with the PIN from the receiver. Click into TextEdit, share the keyboard, and type. Stop sharing before you close the windows.
 
 ## Security
 
 The PIN stops a random device on the network from connecting. Wrong PINs are slowed down, and eight failures lock that address out for a minute. The keystrokes themselves are not encrypted. Use this on a home network you trust, not on cafe Wi-Fi, and not on a guest network that blocks devices from seeing each other.
 
-Sharing starts off. The window title changes to "AirKeys sharing" while it is on.
+Sharing starts off. The window title changes to Sharing while it is on.
 
 ## Tests
 
