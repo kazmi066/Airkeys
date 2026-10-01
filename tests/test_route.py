@@ -7,6 +7,7 @@ from airkeys.route import (
     FLAGS_CHANGED,
     KEY_DOWN,
     KEY_UP,
+    SYSTEM,
     FloodFuse,
     route_event,
 )
@@ -67,10 +68,19 @@ class RouteTests(unittest.TestCase):
         self.assertFalse(decision.toggle)
         self.assertEqual(decision.forward, [(40, True)])
 
-    def test_unknown_key_is_not_eaten(self) -> None:
-        decision, _held = route(KEY_DOWN, 999, sharing=True)
-        self.assertFalse(decision.swallow)
-        self.assertEqual(decision.forward, [])
+    def test_unknown_key_stays_local_until_sharing(self) -> None:
+        idle, _held = route(KEY_DOWN, 999, sharing=False)
+        self.assertFalse(idle.swallow)
+        shared, _held = route(KEY_DOWN, 999, sharing=True)
+        self.assertTrue(shared.swallow)
+        self.assertEqual(shared.forward, [])
+
+    def test_media_keys_stay_off_the_mac_while_sharing(self) -> None:
+        idle, _held = route(SYSTEM, 0, sharing=False)
+        self.assertFalse(idle.swallow)
+        shared, _held = route(SYSTEM, 0, sharing=True)
+        self.assertTrue(shared.swallow)
+        self.assertEqual(shared.forward, [])
 
     def test_injected_events_pass_through(self) -> None:
         decision, _held = route(KEY_DOWN, 0, sharing=True, is_ours=True)

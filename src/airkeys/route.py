@@ -15,6 +15,8 @@ from airkeys.keymap import CAPS, FN, KEYS, MODIFIER_CODES, remap_command
 KEY_DOWN = 10
 KEY_UP = 11
 FLAGS_CHANGED = 12
+SYSTEM = 14
+KEYBOARD_EVENTS = (KEY_DOWN, KEY_UP, FLAGS_CHANGED, SYSTEM)
 
 TOGGLE_KEY = 40  # k
 
@@ -76,6 +78,12 @@ def route_event(
             return Decision(True, False, []), held
         return Decision(True, True, []), held
 
+    if event_type == SYSTEM:
+        # Brightness, volume, and the rest of the function row. The Mac must not act on them.
+        if sharing:
+            return Decision(True, False, []), held
+        return Decision(False, False, []), held
+
     if event_type == FLAGS_CHANGED and keycode == FN:
         if sharing:
             return Decision(True, False, []), held
@@ -104,11 +112,13 @@ def route_event(
         return Decision(False, False, []), held
 
     if event_type in (KEY_DOWN, KEY_UP):
-        if keycode not in KEYS:
-            return Decision(False, False, []), held
         if not sharing:
             return Decision(False, False, []), held
+        if keycode not in KEYS:
+            return Decision(True, False, []), held
         down = event_type == KEY_DOWN
         return Decision(True, False, [(keycode, down)]), held
 
+    if sharing and event_type in KEYBOARD_EVENTS:
+        return Decision(True, False, []), held
     return Decision(False, False, []), held

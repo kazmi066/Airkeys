@@ -20,9 +20,9 @@ You need a keyboard for this install. After that, the receiver can start with Wi
 
 1. Install Python 3 from python.org and enable the option that adds Python to PATH.
 2. Copy this folder to the PC.
-3. Double-click `run-receiver.bat`.
+3. Double-click `run-receiver.bat`. The AirKeys window opens on its own. The command prompt is not the receiver, so Ctrl+C in a terminal does not close it.
 4. When Windows asks, allow Python on private networks.
-5. Leave the window open. It shows a PIN and an address.
+5. Leave the AirKeys window open. It shows a PIN and an address.
 
 To start it at sign-in, press Win+R, run `shell:startup`, and put a shortcut to `run-receiver.bat` in that folder.
 
@@ -35,7 +35,7 @@ You need Python 3 on the Mac. `python3` has to be on your PATH. The Accessibilit
 3. When the PC appears, enter the PIN from its screen and click Connect.
 4. Click Share keyboard.
 
-Stop is on the screen. Control+Option+K also stops sharing. If the PC does not appear, click Enter an address and type the address from the PC window.
+Stop is on the screen. Control+Option+K also stops sharing. While sharing is on, the Mac does not receive the keyboard. The trackpad still works, and that is how you click Stop. If the PC does not appear, click Enter an address and type the address from the PC window.
 
 You can also run it from Terminal:
 
@@ -58,7 +58,7 @@ Command is sent as Ctrl, so Command+C copies on Windows.
 
 Symbols that you type with the Option key on a Mac are not translated. Those are Mac-only.
 
-On a MacBook, the function row sends F1 through F12 when "Use F1, F2, etc. keys as standard function keys" is on in System Settings. Otherwise those keys stay on the Mac as brightness and media keys.
+On a MacBook, turn on "Use F1, F2, etc. keys as standard function keys" in System Settings if the top row should type F1 through F12 on the PC. While sharing is on, that row does not change brightness or volume on the Mac.
 
 ## Try it on the Mac alone
 

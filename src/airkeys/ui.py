@@ -39,6 +39,14 @@ def _font(widget, size: int, weight: str = "normal") -> tuple:
 
 
 def run(role: str | None = None) -> None:
+    if role is None:
+        role = "send" if sys.platform == "darwin" else "receive"
+    if role == "send" and sys.platform != "darwin":
+        role = "receive"
+    if role == "receive":
+        from airkeys.console import detach_from_console
+
+        detach_from_console()
     root = tk.Tk()
     root.title("AirKeys")
     root.configure(bg=BG)
@@ -50,10 +58,6 @@ def run(role: str | None = None) -> None:
             break
     else:
         root._airkeys_font = "Helvetica"
-    if role is None:
-        role = "send" if sys.platform == "darwin" else "receive"
-    if role == "send" and sys.platform != "darwin":
-        role = "receive"
     view = SenderView(root) if role == "send" else ReceiverView(root)
     root._airkeys_view = view
     view.pack(fill="both", expand=True)
@@ -455,6 +459,12 @@ class SenderView(tk.Frame):
                 return
             self.grabber.fuse.clear()
             self.state.enabled = True
+            try:
+                from airkeys.grab_mac import quiet_mac_modifiers
+
+                quiet_mac_modifiers()
+            except Exception:
+                pass
             self._layout_sharing()
             return
         self._flush_keys()

@@ -14,10 +14,13 @@ import threading
 import time
 
 from airkeys.inject import INJECT_MARKER, USER_DATA_FIELD
-from airkeys.route import FLAGS_CHANGED, KEY_DOWN, KEY_UP, FloodFuse, route_event
+from airkeys.route import KEYBOARD_EVENTS, FloodFuse, route_event
 
 TAP_DISABLED_TIMEOUT = 0xFFFFFFFE
 TAP_DISABLED_USER = 0xFFFFFFFF
+HID_TAP = 0
+SESSION_TAP = 1
+HEAD_INSERT = 0
 AUTOREPEAT_FIELD = 8
 KEYCODE_FIELD = 9
 RUN_HANDLED = 4
@@ -82,10 +85,15 @@ class Grabber:
         cf = ctypes.PyDLL(CF_PATH)
         self._bind(ctypes, cg, cf)
         mode = ctypes.c_void_p.in_dll(cf, "kCFRunLoopDefaultMode")
-        mask = (1 << KEY_DOWN) | (1 << KEY_UP) | (1 << FLAGS_CHANGED)
+        mask = 0
+        for kind in KEYBOARD_EVENTS:
+            mask |= 1 << kind
         callback = self._CFUNCTYPE(self._callback_impl)
         self._callback = callback
-        tap = cg.CGEventTapCreate(1, 0, 0, mask, callback, None)
+        # HID is first in line, so Mac apps never see the key. Session is the fallback.
+        tap = cg.CGEventTapCreate(HID_TAP, HEAD_INSERT, 0, mask, callback, None)
+        if not tap:
+            tap = cg.CGEventTapCreate(SESSION_TAP, HEAD_INSERT, 0, mask, callback, None)
         if not tap:
             self.permission_hint = _permission_text()
             self._ok = False
@@ -153,19 +161,23 @@ class Grabber:
         self._cg = cg
 
     def _callback_impl(self, _proxy, typ, event, _refcon):
+        if typ in (TAP_DISABLED_TIMEOUT, TAP_DISABLED_USER):
+            if self.tap:
+                self._cg.CGEventTapEnable(self.tap, True)
+            return event
+        sharing = False
         try:
-            if typ in (TAP_DISABLED_TIMEOUT, TAP_DISABLED_USER):
-                if self.tap:
-                    self._cg.CGEventTapEnable(self.tap, True)
-                return event
+            sharing = bool(self.state.active())
             if self._on_event(typ, event):
                 return None
         except Exception:
+            if sharing and typ in KEYBOARD_EVENTS:
+                return None
             return event
         return event
 
     def _on_event(self, typ, event) -> bool:
-        if typ not in (KEY_DOWN, KEY_UP, FLAGS_CHANGED):
+        if typ not in KEYBOARD_EVENTS:
             return False
         cg = self._cg
         is_ours = cg.CGEventGetIntegerValueField(event, USER_DATA_FIELD) == INJECT_MARKER
@@ -199,6 +211,18 @@ def _permission_text() -> str:
         "Allow this Python in Accessibility, then click Share.\n"
         + sys.executable
     )
+
+
+def quiet_mac_modifiers() -> None:
+    """Drop modifiers the Mac already believes are held, so sharing starts from a clean keyboard."""
+    if sys.platform != "darwin":
+        return
+    from airkeys.inject import MacInjector
+    from airkeys.keymap import MODIFIER_CODES
+
+    injector = MacInjector()
+    for code in MODIFIER_CODES:
+        injector.press(code, False)
 
 
 def open_accessibility_settings() -> None:
