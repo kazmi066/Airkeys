@@ -9,6 +9,7 @@ import time
 from collections.abc import Callable, Iterator
 
 from airkeys.audio import AUDIO_PORT, pack_pcm, read_exact, read_line, frame_size, AudioError
+from airkeys.link import listen_socket
 from airkeys.protocol import AuthError, decode_line, encode, pins_match
 
 Frames = Callable[[threading.Event], Iterator[bytes]]
@@ -30,10 +31,7 @@ class AudioServer:
         self._fails: dict[str, tuple[int, float]] = {}
 
     def start(self) -> int:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.bind((self.host, self.port))
-        sock.listen(1)
+        sock = listen_socket(self.host, self.port)
         self.port = sock.getsockname()[1]
         self._sock = sock
         self._thread = threading.Thread(target=self._accept_loop, name="airkeys-audio", daemon=True)

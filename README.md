@@ -25,6 +25,12 @@ You need a keyboard for this install. After that, the receiver can start with Wi
 5. Leave the AirKeys window open. It shows a PIN and an address.
 6. To hear this PC on the MacBook, run `python -m pip install soundcard` once in this folder.
 
+## Games
+
+Notepad and the desktop take the keystrokes as they arrive. Games often run as administrator, and Windows then drops keys that come from a normal AirKeys window. On the PC window, click Allow games and accept the prompt.
+
+Forza Horizon also stops using the keyboard while a controller is plugged in. Unplug the controller, then try the keys again.
+
 To start it at sign-in, press Win+R, run `shell:startup`, and put a shortcut to `run-receiver.bat` in that folder.
 
 ## Set up the Mac

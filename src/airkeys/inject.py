@@ -146,6 +146,8 @@ class WinInjector(Injector):
             raise RuntimeError(f"Windows INPUT struct is {ctypes.sizeof(INPUT)} bytes, expected 40")
         self.user32.SendInput.argtypes = [wintypes.UINT, ctypes.POINTER(INPUT), ctypes.c_int]
         self.user32.SendInput.restype = wintypes.UINT
+        self.user32.MapVirtualKeyW.argtypes = [wintypes.UINT, wintypes.UINT]
+        self.user32.MapVirtualKeyW.restype = wintypes.UINT
         self._held: dict[int, tuple[int, bool]] = {}
         self._lock = threading.Lock()
 
@@ -171,14 +173,18 @@ class WinInjector(Injector):
         self._send_scan(info.win_scan, info.win_ext, down)
 
     def _send_scan(self, scan: int, extended: bool, down: bool) -> None:
+        # Scan codes are what DirectInput games read. The virtual key is filled in too,
+        # for games that watch the key state instead of the character stream.
         flags = 0x0008  # KEYEVENTF_SCANCODE
         if extended:
             flags |= 0x0001
         if not down:
             flags |= 0x0002
+        mapped = scan | (0xE000 if extended else 0)
+        vk = int(self.user32.MapVirtualKeyW(mapped, 3)) & 0xFF  # MAPVK_VSC_TO_VK_EX
         command = self.INPUT()
         command.type = 1
-        command.ii.ki = self.KEYBDINPUT(0, scan, flags, 0, 0)
+        command.ii.ki = self.KEYBDINPUT(vk, scan, flags, 0, 0)
         sent = self.user32.SendInput(1, self._ctypes.byref(command), self._ctypes.sizeof(command))
         if sent != 1:
             raise OSError(f"SendInput failed ({self._ctypes.get_last_error()})")

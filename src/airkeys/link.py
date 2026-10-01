@@ -15,6 +15,28 @@ HEARTBEAT_S = 2.0
 READ_TIMEOUT_S = 8.0
 
 
+def listen_socket(host: str, port: int) -> socket.socket:
+    """Bind a listening socket. An admin relaunch retries while the old process lets go of the port."""
+    import os
+
+    attempts = 12 if os.environ.get("AIRKEYS_ELEVATED_HANDOFF") == "1" else 1
+    error: OSError | None = None
+    for attempt in range(attempts):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.bind((host, port))
+            sock.listen(1)
+            return sock
+        except OSError as exc:
+            error = exc
+            sock.close()
+            if attempt + 1 == attempts:
+                raise
+            time.sleep(0.25)
+    raise error or OSError("could not listen")
+
+
 class KeySink(Protocol):
     def key(self, code: int, down: bool) -> None: ...
 
@@ -37,10 +59,7 @@ class Server:
         self._active_lock = threading.Lock()
 
     def start(self) -> int:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.bind((self.host, self.port))
-        sock.listen(1)
+        sock = listen_socket(self.host, self.port)
         self.port = sock.getsockname()[1]
         self._sock = sock
         self._thread = threading.Thread(target=self._accept_loop, name="airkeys-accept", daemon=True)
